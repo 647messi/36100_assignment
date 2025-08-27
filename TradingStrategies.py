@@ -83,18 +83,18 @@ def bb_crossover(df,
     price="Close",
     lower_1="Lower_Band_20", lower_2="Lower_Band_60",
     mid_col="MA_20", upper20_col="Upper_Band_20",
-    ttl=None,              # 跌破20下轨后最大等待天数；None=不限
-    layer_cap=2,           # 最大持仓层数（允许叠加）
-    enter_layers=1,        # 每次入场加几层
-    layers_mid=1           # 触及中轨先减几层；剩余到上轨再减完
+    ttl=None,              
+    layer_cap=2,
+    enter_layers=1,
+    layers_mid=1
 ):
     d = df.copy()
     d["BB_signal"] = 0
 
     armed = False
     wait_left = None
-    pos_layers = 0         # 当前持仓层数
-    mid_taken = False      # 本轮持仓是否已在中轨减过仓（防重复）
+    pos_layers = 0
+    mid_taken = False
 
     for i in range(len(d)):
         p  = d[price].iat[i]
@@ -158,12 +158,10 @@ def bb_strategy(df,
     lower_1="Lower_Band_20", lower_2="Lower_Band_60",
     mid_col="MA_20", upper20_col="Upper_Band_20",
     ttl=None, layer_cap=2, enter_layers=1, layers_mid=1,
-    date_col="date"
 ):
-    # 排序（若有日期列）
-    d = df.sort_values(date_col).copy() if date_col in df.columns else df.copy()
 
-    # 生成事件（+n 进、-n 出、0 无操作）
+    d = df.copy()
+
     d = bb_crossover(
         d, price=price,
         lower_1=lower_1, lower_2=lower_2,
@@ -172,7 +170,6 @@ def bb_strategy(df,
         enter_layers=enter_layers, layers_mid=layers_mid
     )
 
-    # 事件累计为持仓/权重（只做多）
     ev = pd.to_numeric(d["BB_signal"], errors="coerce").fillna(0).astype(int)
     d["BB_Position"] = ev.cumsum().clip(lower=0, upper=layer_cap).astype(int)
     d["BB_Weight"]   = d["BB_Position"] / float(layer_cap)
@@ -182,8 +179,7 @@ def bb_strategy(df,
 def backtest_bb_strategy(df, price="Close", weight_col="BB_Weight",
                          fee_bps=5, freq=252, rf_annual=0.0):
     """
-    返回: sharpe, cagr, mdd
-    日收益 = weight(t-1) * pct_change(price) - |Δweight| * fee_rate
+    return: sharpe, cagr, mdd
     """
     s = pd.to_numeric(df[price], errors="coerce")
     w = pd.to_numeric(df[weight_col], errors="coerce").fillna(0.0).clip(0.0, 1.0)
